@@ -1,0 +1,112 @@
+/* Avis Simplified Design Tokens — Restrained, Matte Canvas with Liquid Glass Floating Elements */
+
+:root {
+  /* Canvas & Matte Surfaces */
+  --bg-canvas: #08090a;
+  --bg-sidebar: #111114;
+  --bg-surface-0: #16171c;
+  --bg-surface-1: #1e2027;
+  --bg-surface-hover: #262832;
+
+  /* Floating Liquid Glass Tokens (Reserved ONLY for floating input dock, dropdowns, badges & modals) */
+  --glass-bg: rgba(22, 25, 33, 0.75);
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-border-hover: 1px solid rgba(255, 255, 255, 0.16);
+  --glass-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  --glass-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  /* Typography Colors (WCAG AA Compliant Contrast) */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-inverse: #08090a;
+
+  /* Typography Families */
+  --font-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* Borders & Focus Rings */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-focus: rgba(16, 163, 127, 0.5);
+
+  /* Accent Colors */
+  --accent-emerald: #10a37f;
+  --accent-cyan: #06b6d4;
+  --accent-slate: #e2e8f0;
+  --status-error: #f87171;
+
+  /* 8-Point Spacing Scale */
+  --space-8: 8px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+
+  /* Consistent Radii Scale */
+  --radius-12: 12px;
+  --radius-16: 16px;
+  --radius-20: 20px;
+  --radius-24: 24px;
+  --radius-full: 9999px;
+
+  /* Proportions & Elevational Shadows */
+  --max-content-width: 820px;
+  --header-height: 56px;
+  --sidebar-width: 260px;
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --transition-fast: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Base Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* Subtle Ambient Background Mesh */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 15% 0%, rgba(16, 163, 127, 0.05), transparent 45%),
+    radial-gradient(circle at 85% 100%, rgba(6, 182, 212, 0.04), transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

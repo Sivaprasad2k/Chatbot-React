@@ -1,0 +1,157 @@
+/* UI Primitives Stylesheet — Linear/Vercel Inspired */
+
+/* Button System */
+.avis-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.avis-btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.avis-btn-md {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.avis-btn-lg {
+  padding: 10px 20px;
+  font-size: 15px;
+}
+
+.avis-btn-primary {
+  background-color: var(--text-primary);
+  color: var(--text-inverse);
+  border-color: var(--text-primary);
+}
+.avis-btn-primary:hover:not(:disabled) {
+  background-color: #e4e4e7;
+}
+
+.avis-btn-secondary {
+  background-color: var(--bg-surface-0);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+.avis-btn-secondary:hover:not(:disabled) {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-default);
+}
+
+.avis-btn-ghost {
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+.avis-btn-ghost:hover:not(:disabled) {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.avis-btn-danger {
+  background-color: var(--status-error-bg);
+  color: var(--status-error);
+  border-color: rgba(248, 113, 113, 0.2);
+}
+.avis-btn-danger:hover:not(:disabled) {
+  background-color: rgba(248, 113, 113, 0.2);
+}
+
+.avis-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Spinner Loader */
+.avis-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Badge Component */
+.avis-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-0);
+  color: var(--text-secondary);
+}
+
+.avis-badge-accent {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+/* Modal Overlay & Card */
+.avis-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.avis-modal-card {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 500px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  animation: slideDown 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Toast System */
+.avis-toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1100;
+}
+
+.avis-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-surface-0);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13.5px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
