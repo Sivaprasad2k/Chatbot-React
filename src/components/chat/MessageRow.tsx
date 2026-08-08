@@ -10,7 +10,7 @@ interface MessageRowProps {
   onSpeak: (id: string, text: string) => void;
 }
 
-export const MessageRow: React.FC<MessageRowProps> = ({
+export const MessageRow = React.memo<MessageRowProps>(({
   message,
   speakingMsgId,
   onSpeak
@@ -105,4 +105,4 @@ export const MessageRow: React.FC<MessageRowProps> = ({
       </div>
     </div>
   );
-};
+});

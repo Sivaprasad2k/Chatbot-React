@@ -4,10 +4,26 @@
 .app-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   position: relative;
   z-index: 1;
+}
+
+.main-chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Sidebar Backdrop (Mobile Drawer Overlay) */
+.sidebar-backdrop {
+  display: none;
 }
 
 /* Sidebar (Matte Finish) */
@@ -20,6 +36,7 @@
   padding: var(--space-16);
   flex-shrink: 0;
   z-index: 20;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-brand-header {
@@ -363,6 +380,68 @@
   z-index: 10;
 }
 
+.header-zone-left {
+  display: flex;
+  align-items: center;
+}
+
+.header-zone-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.header-zone-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-menu-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-12);
+  color: var(--text-secondary);
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.header-menu-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.drawer-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.drawer-close-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
 /* Liquid Glass Floating Model Selector Badge & Dropdown */
 .glass-model-badge {
   display: flex;
@@ -650,6 +729,9 @@
   border-radius: var(--radius-20);
   color: var(--text-primary);
   font-size: 14.5px;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .msg-bubble-bot {
@@ -658,6 +740,11 @@
   border: none;
   color: var(--text-primary);
   font-size: 14.5px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Code Block Component */
@@ -667,6 +754,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-16);
   overflow: hidden;
+  max-width: 100%;
 }
 
 .code-block-header {
@@ -690,20 +778,27 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-8);
+  transition: var(--transition-fast);
 }
 
 .code-copy-btn:hover {
   color: var(--text-primary);
+  background: var(--bg-surface-hover);
 }
 
 .code-block-pre {
   margin: 0;
   padding: var(--space-16);
   overflow-x: auto;
+  white-space: pre;
+  word-break: normal;
   font-family: var(--font-mono);
   font-size: 13.5px;
   line-height: 1.55;
   color: var(--text-primary);
+  max-width: 100%;
 }
 
 .icon-btn-ghost {
@@ -711,11 +806,14 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-12);
   color: var(--text-secondary);
-  padding: 6px 10px;
+  padding: 8px 12px;
+  min-width: 36px;
+  min-height: 36px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: var(--transition-fast);
 }
 
 .icon-btn-ghost:hover {
@@ -739,5 +837,144 @@
   border: 1px solid rgba(16, 163, 127, 0.25);
   padding: 4px 10px;
   border-radius: var(--radius-full);
+}
+
+/* Responsive Media Queries (Mobile-First Behavioral Breakpoint Tiers) */
+
+/* Desktop Tier (>=1024px) */
+@media (min-width: 1024px) {
+  .header-zone-center {
+    display: none; /* Persistent sidebar displays brand header on desktop */
+  }
+
+  .drawer-close-btn {
+    display: none;
+  }
+}
+
+/* Tablet Tier (768px - 1023px) */
+@media (max-width: 1023px) {
+  /* Mobile / Tablet Slide-In Overlay Drawer */
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 990;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .avis-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    width: clamp(280px, 85vw, 360px);
+    height: 100vh;
+    height: 100dvh;
+    height: var(--visual-viewport-height, 100dvh);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+    transform: translateX(0);
+  }
+
+  .avis-sidebar.closed {
+    transform: translateX(-100%);
+  }
+
+  .sidebar-brand-header {
+    justify-content: space-between;
+  }
+
+  .feature-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-12);
+  }
+}
+
+/* Large Phone Tier (480px - 767px) */
+@media (max-width: 767px) {
+  .app-container, .main-chat-container {
+    height: 100vh;
+    height: 100dvh;
+    height: var(--visual-viewport-height, 100dvh);
+  }
+
+  .avis-header {
+    padding: 0 var(--space-16);
+  }
+
+  .chat-stream-viewport {
+    padding: var(--space-16);
+    gap: var(--space-20);
+  }
+
+  .msg-row-container {
+    gap: var(--space-12);
+  }
+
+  /* Input Dock Safe Area & Touch Target Scale */
+  .input-dock-footer {
+    padding: 0 var(--space-12) max(var(--space-12), env(safe-area-inset-bottom, 12px));
+  }
+
+  .liquid-glass-dock {
+    padding: 10px 12px;
+    border-radius: var(--radius-20);
+  }
+
+  .icon-action-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .submit-send-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .main-prompt-input {
+    font-size: 16px; /* Prevents auto-zoom on mobile iOS browsers */
+  }
+
+  .glass-dropdown-menu {
+    width: calc(100vw - 32px);
+    max-width: 300px;
+  }
+}
+
+/* Small Phone Tier (<480px) */
+@media (max-width: 479px) {
+  .avis-header {
+    padding: 0 var(--space-12);
+  }
+
+  .header-brand-name {
+    font-size: 15px;
+  }
+
+  .chat-stream-viewport {
+    padding: var(--space-12);
+    gap: var(--space-16);
+  }
+
+  .input-dock-footer {
+    padding: 0 var(--space-12) max(var(--space-8), env(safe-area-inset-bottom, 8px));
+  }
+
+  .welcome-hero-box {
+    padding: var(--space-24) var(--space-12);
+  }
+
+  .welcome-hero-title {
+    font-size: 24px;
+  }
+
+  .feature-card-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
 }
 

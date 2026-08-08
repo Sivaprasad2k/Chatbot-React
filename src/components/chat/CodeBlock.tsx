@@ -7,7 +7,7 @@ interface CodeBlockProps {
   language?: string;
 }
 
-export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language }) => {
+export const CodeBlock = React.memo<CodeBlockProps>(({ code, language }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -35,4 +35,4 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language }) => {
       <ArtifactViewer code={code} language={language || ''} />
     </div>
   );
-};
+});

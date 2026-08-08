@@ -2,6 +2,7 @@ import React from 'react';
 import { PanelLeft } from 'lucide-react';
 import { AIModel } from '@/types/model';
 import { ModelSelector } from './ModelSelector';
+import { AvisLogo } from '@/components/common/AvisLogo';
 
 interface ChatHeaderProps {
   isSidebarOpen: boolean;
@@ -17,15 +18,26 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   return (
     <header className="avis-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* Zone 1: Left Menu Toggle Button */}
+      <div className="header-zone-left">
         <button
           onClick={onToggleSidebar}
-          aria-label="Toggle sidebar"
-          className="icon-btn-ghost"
+          aria-label="Toggle navigation drawer"
+          className="header-menu-btn"
+          title="Open menu"
         >
-          <PanelLeft size={16} />
+          <PanelLeft size={18} />
         </button>
+      </div>
 
+      {/* Zone 2: Center Brand Mark (Compact Logo & Wordmark) */}
+      <div className="header-zone-center">
+        <AvisLogo size={22} />
+        <span className="header-brand-name">Avis</span>
+      </div>
+
+      {/* Zone 3: Right Contextual Controls */}
+      <div className="header-zone-right">
         <ModelSelector selectedModel={selectedModel} onSelectModel={onSelectModel} />
       </div>
     </header>

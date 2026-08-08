@@ -37,8 +37,10 @@
   --accent-slate: #e2e8f0;
   --status-error: #f87171;
 
-  /* 8-Point Spacing Scale */
+  /* 8-Point Spacing Scale System */
+  --space-4: 4px;
   --space-8: 8px;
+  --space-12: 12px;
   --space-16: 16px;
   --space-24: 24px;
   --space-32: 32px;
@@ -46,6 +48,7 @@
   --space-48: 48px;
 
   /* Consistent Radii Scale */
+  --radius-8: 8px;
   --radius-12: 12px;
   --radius-16: 16px;
   --radius-20: 20px;

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageRow } from '@/components/chat/MessageRow';
 import { InputDock } from '@/components/chat/InputDock';
-import { Modal } from '@/components/ui/Modal';
 import { AvisLogo } from '@/components/common/AvisLogo';
 import { storageService } from '@/services/storage/localStorage';
 import { extractTextFromPDF } from '@/services/parsers/pdfParser';
@@ -12,6 +11,9 @@ import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { Thread, Message, DocMeta } from '@/types/chat';
 import { AVAILABLE_MODELS, AIModel } from '@/types/model';
+
+// Code-split secondary Modal dialogs out of the critical initial bundle
+const Modal = lazy(() => import('@/components/ui/Modal').then((m) => ({ default: m.Modal })));
 
 export function App() {
   const [threads, setThreads] = useState<Thread[]>(() => storageService.getThreads());
@@ -28,6 +30,7 @@ export function App() {
   const { speakingMsgId, speak } = useTextToSpeech();
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
 
   useEffect(() => {
     if (transcript) {
@@ -38,6 +41,64 @@ export function App() {
   useEffect(() => {
     storageService.saveThreads(threads);
   }, [threads]);
+
+  // Sync Visual Viewport Height for Mobile Keyboard Handling
+  useEffect(() => {
+    const updateViewportHeight = () => {
+      const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty('--visual-viewport-height', `${vh}px`);
+    };
+
+    updateViewportHeight();
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateViewportHeight);
+      window.visualViewport.addEventListener('scroll', updateViewportHeight);
+    } else {
+      window.addEventListener('resize', updateViewportHeight);
+    }
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateViewportHeight);
+        window.visualViewport.removeEventListener('scroll', updateViewportHeight);
+      } else {
+        window.removeEventListener('resize', updateViewportHeight);
+      }
+    };
+  }, []);
+
+  // Native Mobile Edge Touch Swipe Gesture for Drawer Toggle
+  useEffect(() => {
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (touchStartX.current === null) return;
+      const touchEndX = e.changedTouches[0].clientX;
+      const deltaX = touchEndX - touchStartX.current;
+
+      // Swipe right from left edge (start X < 30px) to open sidebar on mobile
+      if (touchStartX.current < 30 && deltaX > 60) {
+        setIsSidebarOpen(true);
+      }
+      // Swipe left anywhere when sidebar is open to close sidebar on mobile
+      else if (isSidebarOpen && deltaX < -60) {
+        setIsSidebarOpen(false);
+      }
+
+      touchStartX.current = null;
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isSidebarOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -57,7 +118,7 @@ export function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentMessages, isLoading]);
 
-  const handleNewThread = () => {
+  const handleNewThread = useCallback(() => {
     const newThread: Thread = {
       id: Date.now().toString(),
       title: 'New Conversation',
@@ -68,9 +129,9 @@ export function App() {
     };
     setThreads((prev) => [newThread, ...prev]);
     setActiveThreadId(newThread.id);
-  };
+  }, [selectedModel.id]);
 
-  const handleDeleteThread = (id: string, e: React.MouseEvent) => {
+  const handleDeleteThread = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setThreads((prev) => {
       const filtered = prev.filter((t) => t.id !== id);
@@ -86,13 +147,13 @@ export function App() {
     if (activeThreadId === id) {
       setActiveThreadId(threads[0]?.id || 'default');
     }
-  };
+  }, [activeThreadId, threads, selectedModel.id]);
 
-  const handleClearThreads = () => {
+  const handleClearThreads = useCallback(() => {
     const fresh = storageService.clearThreads();
     setThreads(fresh);
     setActiveThreadId(fresh[0].id);
-  };
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -192,6 +253,7 @@ export function App() {
         threads={threads}
         activeThreadId={activeThreadId}
         isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         onSelectThread={setActiveThreadId}
         onNewThread={handleNewThread}
         onDeleteThread={handleDeleteThread}
@@ -200,7 +262,7 @@ export function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <div className="main-chat-container">
         <ChatHeader
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -259,68 +321,70 @@ export function App() {
         />
       </div>
 
-      <Modal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} title="About Avis">
-        <div className="about-modal-body">
-          <p style={{ marginBottom: 12 }}>
-            <strong style={{ color: 'var(--text-primary)' }}>Avis</strong> stands for <em>Adaptive Virtual Intelligence System</em>.
-          </p>
-          <p style={{ marginBottom: 12, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
-            Avis is an advanced AI assistant built for high-precision technical reasoning, full-stack code generation, document analysis, and natural voice interaction.
-          </p>
-          <div className="about-tech-pills">
-            <span className="about-pill">Multimodal Reasoning</span>
-            <span className="about-pill">Code Synthesis</span>
-            <span className="about-pill">Document Parsing</span>
-            <span className="about-pill">Voice Hardware Integration</span>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} title="Workspace Settings">
-        <div className="about-modal-body">
-          <div style={{ marginBottom: 16 }}>
-            <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-              Storage Location
-            </h4>
-            <p style={{ fontSize: 13.5, color: 'var(--text-primary)', margin: 0 }}>
-              Client-Side LocalStorage (Private & Offline)
+      <Suspense fallback={null}>
+        <Modal isOpen={isAboutOpen} onClose={() => setIsAboutOpen(false)} title="About Avis">
+          <div className="about-modal-body">
+            <p style={{ marginBottom: 12 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Avis</strong> stands for <em>Adaptive Virtual Intelligence System</em>.
             </p>
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-              Active AI Model
-            </h4>
-            <p style={{ fontSize: 13.5, color: 'var(--text-primary)', margin: 0 }}>
-              {selectedModel.name} <span style={{ color: 'var(--text-muted)' }}>({selectedModel.provider})</span>
+            <p style={{ marginBottom: 12, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+              Avis is an advanced AI assistant built for high-precision technical reasoning, full-stack code generation, document analysis, and natural voice interaction.
             </p>
+            <div className="about-tech-pills">
+              <span className="about-pill">Multimodal Reasoning</span>
+              <span className="about-pill">Code Synthesis</span>
+              <span className="about-pill">Document Parsing</span>
+              <span className="about-pill">Voice Hardware Integration</span>
+            </div>
           </div>
+        </Modal>
 
-          <div style={{ paddingTop: 14, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Avis v0.1.0</span>
-            <button
-              onClick={() => {
-                if (window.confirm('Clear all local conversations?')) {
-                  handleClearThreads();
-                  setIsSettingsOpen(false);
-                }
-              }}
-              style={{
-                background: 'rgba(244, 63, 94, 0.1)',
-                border: '1px solid rgba(244, 63, 94, 0.3)',
-                color: 'var(--status-error)',
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-12)',
-                fontSize: 12.5,
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              Clear Local Storage
-            </button>
+        <Modal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} title="Workspace Settings">
+          <div className="about-modal-body">
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                Storage Location
+              </h4>
+              <p style={{ fontSize: 13.5, color: 'var(--text-primary)', margin: 0 }}>
+                Client-Side LocalStorage (Private & Offline)
+              </p>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                Active AI Model
+              </h4>
+              <p style={{ fontSize: 13.5, color: 'var(--text-primary)', margin: 0 }}>
+                {selectedModel.name} <span style={{ color: 'var(--text-muted)' }}>({selectedModel.provider})</span>
+              </p>
+            </div>
+
+            <div style={{ paddingTop: 14, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Avis v0.1.0</span>
+              <button
+                onClick={() => {
+                  if (window.confirm('Clear all local conversations?')) {
+                    handleClearThreads();
+                    setIsSettingsOpen(false);
+                  }
+                }}
+                style={{
+                  background: 'rgba(244, 63, 94, 0.1)',
+                  border: '1px solid rgba(244, 63, 94, 0.3)',
+                  color: 'var(--status-error)',
+                  padding: '6px 12px',
+                  borderRadius: 'var(--radius-12)',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Clear Local Storage
+              </button>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </Modal>
+      </Suspense>
     </div>
   );
 }

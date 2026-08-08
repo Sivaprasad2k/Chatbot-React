@@ -31,10 +31,31 @@ export const InputDock: React.FC<InputDockProps> = ({
   modelName
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSubmitDisabled = (!inputText.trim() && !docMeta) || isLoading;
 
+  const handleTextChange = (val: string) => {
+    onChangeText(val);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 140)}px`;
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isSubmitDisabled) {
+        onSubmit(e);
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+      }
+    }
+  };
+
   return (
-    <footer className="input-dock-footer">
+    <footer className="input-dock-footer" aria-label="Chat input dock">
       <div className="liquid-glass-dock">
         {isListening && <AudioMeter audioLevel={audioLevel} />}
 
@@ -69,6 +90,9 @@ export const InputDock: React.FC<InputDockProps> = ({
           onSubmit={(e) => {
             e.preventDefault();
             onSubmit(e);
+            if (textareaRef.current) {
+              textareaRef.current.style.height = 'auto';
+            }
           }}
           className="input-form-flex"
         >
@@ -100,17 +124,19 @@ export const InputDock: React.FC<InputDockProps> = ({
             {isListening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>
 
-          <input
-            type="text"
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={inputText}
-            onChange={(e) => onChangeText(e.target.value)}
+            onChange={(e) => handleTextChange(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={
               isListening
                 ? 'Listening to voice... speak now...'
                 : `Ask ${modelName} anything...`
             }
             disabled={isLoading}
-            className="main-prompt-input"
+            className="main-prompt-input textarea-auto-grow"
           />
 
           <button
@@ -119,7 +145,7 @@ export const InputDock: React.FC<InputDockProps> = ({
             aria-label="Send message"
             className={`submit-send-btn ${isSubmitDisabled ? 'disabled' : 'active'}`}
           >
-            <ArrowUp size={16} />
+            <ArrowUp size={18} />
           </button>
         </form>
       </div>
