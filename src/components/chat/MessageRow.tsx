@@ -2,6 +2,7 @@ import React from 'react';
 import { Volume2, VolumeX, FileText } from 'lucide-react';
 import { Message } from '@/types/chat';
 import { CodeBlock } from './CodeBlock';
+import { AvisLogo } from '@/components/common/AvisLogo';
 
 interface MessageRowProps {
   message: Message;
@@ -50,7 +51,9 @@ export const MessageRow: React.FC<MessageRowProps> = ({
   return (
     <div className={`msg-row-container ${isUser ? 'user' : 'assistant'}`}>
       {!isUser && (
-        <div className="bot-avatar-icon">A</div>
+        <div className="bot-avatar-icon">
+          <AvisLogo size={16} />
+        </div>
       )}
 
       <div style={{ flex: isUser ? '0 1 auto' : 1, maxWidth: isUser ? '85%' : '100%' }}>

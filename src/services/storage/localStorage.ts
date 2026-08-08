@@ -42,6 +42,23 @@ export const storageService = {
     }
   },
 
+  clearThreads(): Thread[] {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.THREADS);
+    } catch (e) {
+      console.error('Failed to clear chat threads from localStorage:', e);
+    }
+    const freshDefault: Thread = {
+      id: Date.now().toString(),
+      title: 'New Conversation',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      messages: [],
+      modelId: 'avis-core'
+    };
+    return [freshDefault];
+  },
+
   getPreferences(): UserPreferences {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.PREFERENCES);

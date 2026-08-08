@@ -129,15 +129,181 @@
   flex: 1;
 }
 
-/* Sidebar Profile Footer Card */
-.sidebar-profile-card {
-  padding-top: var(--space-16);
-  margin-top: var(--space-16);
+/* Sidebar Local Workspace Panel Footer */
+.sidebar-workspace-card {
+  padding-top: var(--space-12);
+  margin-top: var(--space-12);
   border-top: 1px solid var(--border-subtle);
+  position: relative;
+}
+
+.workspace-panel-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: var(--radius-16);
+  background: var(--bg-surface-0);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.workspace-panel-trigger:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-default);
+}
+
+.workspace-panel-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.workspace-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.workspace-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.storage-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.workspace-status-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot-sep {
+  opacity: 0.5;
+}
+
+.version-text {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.workspace-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Liquid Glass Popover Menu */
+.workspace-dropdown-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: var(--space-8);
+  background: rgba(18, 20, 27, 0.95);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  border-radius: var(--radius-20);
+  padding: 8px;
+  box-shadow: var(--glass-shadow);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+}
+
+.storage-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.version-tag {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.workspace-menu-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: 4px 0;
+}
+
+.workspace-menu-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-bottom: 4px;
+  padding: 8px 10px;
+  border-radius: var(--radius-12);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.workspace-menu-item:hover {
+  background: var(--bg-surface-hover);
+}
+
+.workspace-menu-item.danger {
+  color: var(--status-error);
+}
+
+.workspace-menu-item.danger:hover {
+  background: rgba(244, 63, 94, 0.1);
+}
+
+.workspace-menu-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 8px 2px;
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 4px;
 }
 
 .profile-avatar {
@@ -152,6 +318,13 @@
   font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
+  overflow: hidden;
+}
+
+.profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .profile-info {
@@ -549,3 +722,22 @@
   background-color: var(--bg-surface-hover);
   color: var(--text-primary);
 }
+
+/* About Modal Capability Pills */
+.about-tech-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.about-pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-emerald);
+  background: rgba(16, 163, 127, 0.1);
+  border: 1px solid rgba(16, 163, 127, 0.25);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+

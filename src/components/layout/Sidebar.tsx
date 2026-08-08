@@ -1,6 +1,8 @@
 import React from 'react';
-import { Plus, MessageSquare, Trash2, Shield } from 'lucide-react';
+import { Plus, MessageSquare, Trash2 } from 'lucide-react';
 import { Thread } from '@/types/chat';
+import { AvisLogo } from '@/components/common/AvisLogo';
+import { SidebarWorkspacePanel } from './SidebarWorkspacePanel';
 
 interface SidebarProps {
   threads: Thread[];
@@ -9,7 +11,9 @@ interface SidebarProps {
   onSelectThread: (id: string) => void;
   onNewThread: () => void;
   onDeleteThread: (id: string, e: React.MouseEvent) => void;
+  onClearThreads: () => void;
   onOpenAbout: () => void;
+  onOpenSettings: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -19,7 +23,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectThread,
   onNewThread,
   onDeleteThread,
-  onOpenAbout
+  onClearThreads,
+  onOpenAbout,
+  onOpenSettings
 }) => {
   if (!isOpen) return null;
 
@@ -27,13 +33,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="avis-sidebar">
       {/* Brand Header */}
       <div className="sidebar-brand-header">
-        <div className="brand-icon-box">A</div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>Avis</span>
-          <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-            ADAPTIVE VIRTUAL INTELLIGENCE
-          </span>
-        </div>
+        <AvisLogo size={26} />
+        <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1, color: 'var(--text-primary)' }}>
+          Avis
+        </span>
       </div>
 
       {/* New Chat Button */}
@@ -77,21 +80,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </div>
 
-      {/* User Profile Card Footer */}
-      <div className="sidebar-profile-card">
-        <div className="profile-avatar">SP</div>
-        <div className="profile-info">
-          <span className="profile-name">Siva Prasad</span>
-          <span className="profile-email">siva.prasad@email.com</span>
-        </div>
-        <button
-          onClick={onOpenAbout}
-          title="About Avis"
-          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-        >
-          <Shield size={15} />
-        </button>
-      </div>
+      {/* Local Workspace Panel Footer */}
+      <SidebarWorkspacePanel
+        threadsCount={threads.length}
+        onOpenAbout={onOpenAbout}
+        onOpenSettings={onOpenSettings}
+        onClearThreads={onClearThreads}
+      />
     </aside>
   );
 };
+

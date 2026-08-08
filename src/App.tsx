@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Edit3, Code, GraduationCap, BarChart2 } from 'lucide-react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { MessageRow } from '@/components/chat/MessageRow';
 import { InputDock } from '@/components/chat/InputDock';
 import { Modal } from '@/components/ui/Modal';
+import { AvisLogo } from '@/components/common/AvisLogo';
 import { storageService } from '@/services/storage/localStorage';
 import { extractTextFromPDF } from '@/services/parsers/pdfParser';
 import { apiClient } from '@/services/api/client';
@@ -22,6 +22,7 @@ export function App() {
   const [docMeta, setDocMeta] = useState<DocMeta | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const { isListening, transcript, setTranscript, audioLevel, startListening, stopListening } = useSpeechRecognition();
   const { speakingMsgId, speak } = useTextToSpeech();
@@ -87,6 +88,12 @@ export function App() {
     }
   };
 
+  const handleClearThreads = () => {
+    const fresh = storageService.clearThreads();
+    setThreads(fresh);
+    setActiveThreadId(fresh[0].id);
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -116,10 +123,6 @@ export function App() {
       }
     }
     e.target.value = '';
-  };
-
-  const handleQuickPrompt = (promptText: string) => {
-    setInputText(promptText);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -192,7 +195,9 @@ export function App() {
         onSelectThread={setActiveThreadId}
         onNewThread={handleNewThread}
         onDeleteThread={handleDeleteThread}
+        onClearThreads={handleClearThreads}
         onOpenAbout={() => setIsAboutOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -206,43 +211,14 @@ export function App() {
         {currentMessages.length === 0 ? (
           <div className="welcome-hero-box">
             <div className="welcome-logo-badge">
-              <span style={{ fontSize: 32, fontWeight: 800, background: 'linear-gradient(135deg, var(--accent-emerald), var(--accent-cyan))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                A
-              </span>
+              <AvisLogo size={42} />
             </div>
             <h1 className="welcome-hero-title">
               Avis
             </h1>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: 20 }}>
-              ADAPTIVE VIRTUAL INTELLIGENCE SYSTEM
-            </p>
             <h2 style={{ fontSize: 24, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 32, letterSpacing: '-0.02em' }}>
               What can I help you with today?
             </h2>
-
-            {/* 4 Feature Quick Prompt Cards */}
-            <div className="feature-card-grid">
-              <div className="feature-card" onClick={() => handleQuickPrompt('Write a technical RFC document for a microservices migration')}>
-                <div className="feature-card-icon"><Edit3 size={16} /></div>
-                <div className="feature-card-title">Write</div>
-                <div className="feature-card-desc">Draft technical docs, RFCs, emails and proposals</div>
-              </div>
-              <div className="feature-card" onClick={() => handleQuickPrompt('Debug React custom hook performance and render bottlenecks')}>
-                <div className="feature-card-icon"><Code size={16} /></div>
-                <div className="feature-card-title">Code</div>
-                <div className="feature-card-desc">Refactor code, debug errors, explain algorithms</div>
-              </div>
-              <div className="feature-card" onClick={() => handleQuickPrompt('Explain how B-Tree database indexes work with examples')}>
-                <div className="feature-card-icon"><GraduationCap size={16} /></div>
-                <div className="feature-card-title">Learn</div>
-                <div className="feature-card-desc">Explore system design, algorithms & concepts</div>
-              </div>
-              <div className="feature-card" onClick={() => handleQuickPrompt('Analyze PDF document structure and summarize key findings')}>
-                <div className="feature-card-icon"><BarChart2 size={16} /></div>
-                <div className="feature-card-title">Analyze</div>
-                <div className="feature-card-desc">Extract insights from PDF documents and data</div>
-              </div>
-            </div>
           </div>
         ) : (
           <div className="chat-stream-viewport">
@@ -256,7 +232,9 @@ export function App() {
             ))}
             {isLoading && (
               <div className="loading-indicator-row">
-                <div className="bot-avatar-icon">A</div>
+                <div className="bot-avatar-icon">
+                  <AvisLogo size={16} />
+                </div>
                 <div className="loading-indicator-text">
                   {selectedModel.name} is reasoning...
                 </div>
@@ -286,14 +264,60 @@ export function App() {
           <p style={{ marginBottom: 12 }}>
             <strong style={{ color: 'var(--text-primary)' }}>Avis</strong> stands for <em>Adaptive Virtual Intelligence System</em>.
           </p>
-          <p style={{ marginBottom: 12 }}>
-            Engineered with a calm, minimal Liquid Glass floating dock, matte canvas, Geist typography, strict TypeScript architecture, WCAG AA accessibility, client-side PDF analysis, and Web Speech hardware integration.
+          <p style={{ marginBottom: 12, lineHeight: 1.55, color: 'var(--text-secondary)' }}>
+            Avis is an advanced AI assistant built for high-precision technical reasoning, full-stack code generation, document analysis, and natural voice interaction.
           </p>
           <div className="about-tech-pills">
-            <span className="about-pill">React 18</span>
-            <span className="about-pill">TypeScript 5</span>
-            <span className="about-pill">Vite</span>
-            <span className="about-pill">Vercel Ready</span>
+            <span className="about-pill">Multimodal Reasoning</span>
+            <span className="about-pill">Code Synthesis</span>
+            <span className="about-pill">Document Parsing</span>
+            <span className="about-pill">Voice Hardware Integration</span>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} title="Workspace Settings">
+        <div className="about-modal-body">
+          <div style={{ marginBottom: 16 }}>
+            <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              Storage Location
+            </h4>
+            <p style={{ fontSize: 13.5, color: 'var(--text-primary)', margin: 0 }}>
+              Client-Side LocalStorage (Private & Offline)
+            </p>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              Active AI Model
+            </h4>
+            <p style={{ fontSize: 13.5, color: 'var(--text-primary)', margin: 0 }}>
+              {selectedModel.name} <span style={{ color: 'var(--text-muted)' }}>({selectedModel.provider})</span>
+            </p>
+          </div>
+
+          <div style={{ paddingTop: 14, borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Avis v0.1.0</span>
+            <button
+              onClick={() => {
+                if (window.confirm('Clear all local conversations?')) {
+                  handleClearThreads();
+                  setIsSettingsOpen(false);
+                }
+              }}
+              style={{
+                background: 'rgba(244, 63, 94, 0.1)',
+                border: '1px solid rgba(244, 63, 94, 0.3)',
+                color: 'var(--status-error)',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-12)',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Clear Local Storage
+            </button>
           </div>
         </div>
       </Modal>
