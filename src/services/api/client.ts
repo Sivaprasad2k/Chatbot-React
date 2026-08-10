@@ -10,7 +10,9 @@ export interface GenerateResponseParams {
 }
 
 export interface BackendHealth {
-  status: 'CONNECTED' | 'CONFIGURATION_MISSING' | 'UNAVAILABLE';
+  status: 'READY' | 'CONFIGURATION_MISSING' | 'UNAVAILABLE';
+  backendReachable?: boolean;
+  providerConfigured?: boolean;
   providers?: {
     openai?: boolean;
     gemini?: boolean;
@@ -38,19 +40,28 @@ export const apiClient = {
       if (res.ok) {
         const data = await res.json();
         return {
-          status: data.status || 'CONNECTED',
+          status: data.status === 'READY' || data.status === 'CONNECTED' ? 'READY' : 'CONFIGURATION_MISSING',
+          backendReachable: Boolean(data.backendReachable ?? true),
+          providerConfigured: Boolean(data.providerConfigured ?? (data.status === 'CONNECTED' || data.status === 'READY')),
           providers: data.providers,
           activeModels: data.activeModels
         };
       }
-      return { status: 'UNAVAILABLE' };
+      return { status: 'UNAVAILABLE', backendReachable: false, providerConfigured: false };
     } catch {
-      // Local dev mode without backend serverless running
       const localKey = import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
       if (localKey) {
-        return { status: 'CONNECTED', providers: { openai: Boolean(import.meta.env.VITE_OPENAI_API_KEY), gemini: Boolean(import.meta.env.VITE_GEMINI_API_KEY) } };
+        return {
+          status: 'READY',
+          backendReachable: true,
+          providerConfigured: true,
+          providers: {
+            openai: Boolean(import.meta.env.VITE_OPENAI_API_KEY),
+            gemini: Boolean(import.meta.env.VITE_GEMINI_API_KEY)
+          }
+        };
       }
-      return { status: 'CONFIGURATION_MISSING' };
+      return { status: 'CONFIGURATION_MISSING', backendReachable: false, providerConfigured: false };
     }
   },
 
@@ -90,7 +101,6 @@ export const apiClient = {
 
       if (response.status === 503) {
         const data = await response.json().catch(() => ({}));
-        // If serverless endpoint reports configuration missing and we have no local key:
         if (data.error === 'CONFIGURATION_MISSING' && !openaiApiKey && !geminiApiKey) {
           return `### ⚠️ Avis AI Inference Backend Not Connected
 
@@ -111,13 +121,12 @@ export const apiClient = {
         throw new Error(message);
       }
     } catch (err: any) {
-      // If network error occurred or endpoint failed, check if local client key exists for dev fallback
       if (err.message && !err.message.includes('Failed to fetch')) {
         throw err;
       }
     }
 
-    // 2. Client-Side Fallback for Local Development (if VITE_OPENAI_API_KEY or VITE_GEMINI_API_KEY set)
+    // 2. Client-Side Fallback for Local Development (if VITE_OPENAI_API_KEY or VITE_GEMINI_API_KEY is set)
     if (openaiApiKey) {
       try {
         const formattedHistory = history.map((m) => ({
@@ -148,7 +157,7 @@ export const apiClient = {
           return data.choices?.[0]?.message?.content || 'No response';
         }
       } catch {
-        // Fallthrough to notice
+        // Fallthrough
       }
     }
 

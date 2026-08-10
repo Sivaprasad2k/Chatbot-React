@@ -1,6 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 
-// Helper to parse JSON request body in Node.js HTTP serverless environment
 async function parseJsonBody(req: IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -18,21 +17,24 @@ async function parseJsonBody(req: IncomingMessage): Promise<any> {
   });
 }
 
-function sendJson(res: ServerResponse, statusCode: number, data: any) {
+function sendJson(req: IncomingMessage, res: ServerResponse, statusCode: number, data: any) {
+  const origin = (req.headers.origin as string) || (req.headers.host ? `https://${req.headers.host}` : '*');
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.end(JSON.stringify(data));
 }
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const method = req.method || 'GET';
 
-  // Handle CORS Preflight Options Request
+  // Handle CORS Preflight OPTIONS Request
   if (method === 'OPTIONS') {
+    const origin = (req.headers.origin as string) || '*';
     res.statusCode = 200;
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.end();
@@ -43,11 +45,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const geminiKey = process.env.GEMINI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
-  // GET: Health Check Endpoint
+  // GET: Zero-Token Health Check Endpoint
   if (method === 'GET') {
     const isConfigured = Boolean(openaiKey || geminiKey || anthropicKey);
-    return sendJson(res, 200, {
-      status: isConfigured ? 'CONNECTED' : 'CONFIGURATION_MISSING',
+    return sendJson(req, res, 200, {
+      status: isConfigured ? 'READY' : 'CONFIGURATION_MISSING',
+      backendReachable: true,
+      providerConfigured: isConfigured,
       providers: {
         openai: Boolean(openaiKey),
         gemini: Boolean(geminiKey),
@@ -58,27 +62,27 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     });
   }
 
-  // POST: AI Inference Endpoint
+  // POST: AI Inference Handler
   if (method === 'POST') {
     try {
       const payload = await parseJsonBody(req);
       const { modelId = 'avis-core', userPrompt, docMeta, history = [] } = payload;
 
-      if (!userPrompt || typeof userPrompt !== 'string') {
-        return sendJson(res, 400, {
+      if (!userPrompt || typeof userPrompt !== 'string' || !userPrompt.trim()) {
+        return sendJson(req, res, 400, {
           error: 'INVALID_REQUEST',
-          message: 'Missing or invalid userPrompt in request body.'
+          message: 'Missing or empty userPrompt in request payload.'
         });
       }
 
       if (!openaiKey && !geminiKey && !anthropicKey) {
-        return sendJson(res, 503, {
+        return sendJson(req, res, 503, {
           error: 'CONFIGURATION_MISSING',
           message: 'No server-side AI provider API keys (OPENAI_API_KEY, GEMINI_API_KEY) are configured in Vercel Environment Variables.'
         });
       }
 
-      // Format messages history
+      // Sanitize and format conversation history
       const formattedHistory = (Array.isArray(history) ? history : [])
         .filter((m: any) => m && m.content && !m.error)
         .map((m: any) => ({
@@ -86,13 +90,58 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           content: m.content
         }));
 
-      // Document Context Integration
+      // Document Context Integration & Truncation (Max 8,000 chars ~ 2,000 tokens)
       let finalUserMessage = userPrompt;
       if (docMeta && docMeta.text) {
-        finalUserMessage = `[Attached Document Context: "${docMeta.name}" (${docMeta.size})]\n${docMeta.text.slice(0, 4000)}\n\n[User Query]:\n${userPrompt}`;
+        const docTextSnippet = docMeta.text.length > 8000
+          ? `${docMeta.text.slice(0, 8000)}\n[... document context truncated at 8,000 characters ...]`
+          : docMeta.text;
+        finalUserMessage = `[Attached Document Context: "${docMeta.name}" (${docMeta.size})]\n${docTextSnippet}\n\n[User Query]:\n${userPrompt}`;
       }
 
-      // 1. Google Gemini API Adapter (Avis Flash or when GEMINI_API_KEY is present for avis-flash)
+      // Adapter 1: Anthropic API (Avis Analytical when ANTHROPIC_API_KEY is configured)
+      if (modelId === 'avis-analytical' && anthropicKey) {
+        const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 2048,
+            system: 'You are Avis Analytical. Focus on deep structural engineering logic, architectural decision-making, code reviews, and nuanced analysis.',
+            messages: [
+              ...formattedHistory.map((m: any) => ({
+                role: m.role === 'assistant' ? 'assistant' : 'user',
+                content: m.content
+              })),
+              { role: 'user', content: finalUserMessage }
+            ]
+          })
+        });
+
+        if (!anthropicRes.ok) {
+          const status = anthropicRes.status;
+          if (status === 401) return sendJson(req, res, 401, { error: 'PROVIDER_AUTHENTICATION_FAILURE', message: 'Anthropic API key authentication failed.' });
+          if (status === 429) return sendJson(req, res, 429, { error: 'RATE_LIMITED', message: 'Anthropic rate limit exceeded.' });
+          return sendJson(req, res, 500, { error: 'MODEL_PROVIDER_ERROR', message: `Anthropic API returned status ${status}.` });
+        }
+
+        const anthropicData = await anthropicRes.json();
+        const replyText = anthropicData.content?.[0]?.text;
+        if (!replyText) return sendJson(req, res, 500, { error: 'EMPTY_RESPONSE', message: 'Anthropic API returned empty message content.' });
+
+        return sendJson(req, res, 200, {
+          reply: replyText,
+          modelId,
+          provider: 'Anthropic',
+          model: 'claude-3-5-sonnet-20241022'
+        });
+      }
+
+      // Adapter 2: Google Gemini API (Avis Flash when GEMINI_API_KEY is configured)
       if (modelId === 'avis-flash' && geminiKey) {
         const geminiMessages = [
           ...formattedHistory.map((m: any) => ({
@@ -113,16 +162,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
         if (!geminiRes.ok) {
           const status = geminiRes.status;
-          if (status === 401) return sendJson(res, 401, { error: 'PROVIDER_AUTHENTICATION_FAILURE', message: 'Gemini API key authentication failed.' });
-          if (status === 429) return sendJson(res, 429, { error: 'RATE_LIMITED', message: 'Gemini rate limit exceeded.' });
-          return sendJson(res, 500, { error: 'MODEL_PROVIDER_ERROR', message: `Gemini API returned HTTP status ${status}.` });
+          if (status === 401) return sendJson(req, res, 401, { error: 'PROVIDER_AUTHENTICATION_FAILURE', message: 'Gemini API key authentication failed.' });
+          if (status === 429) return sendJson(req, res, 429, { error: 'RATE_LIMITED', message: 'Gemini rate limit exceeded.' });
+          return sendJson(req, res, 500, { error: 'MODEL_PROVIDER_ERROR', message: `Gemini API returned status ${status}.` });
         }
 
         const geminiData = await geminiRes.json();
         const replyText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!replyText) return sendJson(res, 500, { error: 'EMPTY_RESPONSE', message: 'Gemini returned empty response text.' });
+        if (!replyText) return sendJson(req, res, 500, { error: 'EMPTY_RESPONSE', message: 'Gemini returned empty response text.' });
 
-        return sendJson(res, 200, {
+        return sendJson(req, res, 200, {
           reply: replyText,
           modelId,
           provider: 'Google Gemini',
@@ -130,7 +179,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         });
       }
 
-      // 2. OpenAI API Adapter (Avis Core, Avis Analytical, Avis Search, or General Fallback)
+      // Adapter 3: OpenAI API (Avis Core, Avis Search, or General Provider Fallback)
       if (openaiKey) {
         const targetModel = process.env.OPENAI_MODEL || 'gpt-4o';
         let systemPrompt = 'You are Avis (Adaptive Virtual Intelligence System), an advanced AI assistant built for technical reasoning, full-stack software architecture, code generation, and document analysis.';
@@ -139,6 +188,8 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           systemPrompt = 'You are Avis Analytical. Focus on deep structural engineering logic, architectural decision-making, and technical analysis.';
         } else if (modelId === 'avis-search') {
           systemPrompt = 'You are Avis Search. Provide structured, factual explanations with authoritative synthesis and clear citations where relevant.';
+        } else if (modelId === 'avis-flash') {
+          systemPrompt = 'You are Avis Flash. Optimized for high-speed, concise, and precise responses.';
         }
 
         const openAiMessages = [
@@ -163,16 +214,16 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           const status = openAiRes.status;
           const errorData = await openAiRes.json().catch(() => ({}));
           const detail = errorData.error?.message || `HTTP ${status}`;
-          if (status === 401) return sendJson(res, 401, { error: 'PROVIDER_AUTHENTICATION_FAILURE', message: `OpenAI API authentication failed: ${detail}` });
-          if (status === 429) return sendJson(res, 429, { error: 'RATE_LIMITED', message: 'OpenAI rate limit reached. Please try again shortly.' });
-          return sendJson(res, 500, { error: 'MODEL_PROVIDER_ERROR', message: `OpenAI returned status ${status}: ${detail}` });
+          if (status === 401) return sendJson(req, res, 401, { error: 'PROVIDER_AUTHENTICATION_FAILURE', message: `OpenAI API authentication failed: ${detail}` });
+          if (status === 429) return sendJson(req, res, 429, { error: 'RATE_LIMITED', message: 'OpenAI rate limit reached. Please try again shortly.' });
+          return sendJson(req, res, 500, { error: 'MODEL_PROVIDER_ERROR', message: `OpenAI returned status ${status}: ${detail}` });
         }
 
         const openAiData = await openAiRes.json();
         const replyText = openAiData.choices?.[0]?.message?.content;
-        if (!replyText) return sendJson(res, 500, { error: 'EMPTY_RESPONSE', message: 'OpenAI returned an empty response choice.' });
+        if (!replyText) return sendJson(req, res, 500, { error: 'EMPTY_RESPONSE', message: 'OpenAI returned an empty response choice.' });
 
-        return sendJson(res, 200, {
+        return sendJson(req, res, 200, {
           reply: replyText,
           modelId,
           provider: 'OpenAI',
@@ -180,17 +231,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         });
       }
 
-      return sendJson(res, 503, {
+      return sendJson(req, res, 503, {
         error: 'CONFIGURATION_MISSING',
         message: 'No active AI provider key matches the requested model profile.'
       });
     } catch (err: any) {
-      return sendJson(res, 500, {
+      return sendJson(req, res, 500, {
         error: 'MODEL_PROVIDER_ERROR',
         message: err?.message || 'Server error processing AI inference.'
       });
     }
   }
 
-  return sendJson(res, 405, { error: 'INVALID_REQUEST', message: 'Method Not Allowed' });
+  return sendJson(req, res, 405, { error: 'INVALID_REQUEST', message: 'Method Not Allowed' });
 }

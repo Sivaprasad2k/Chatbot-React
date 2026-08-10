@@ -44,7 +44,7 @@ export const SidebarWorkspacePanel: React.FC<SidebarWorkspacePanelProps> = ({
     }
   };
 
-  const isConnected = health.status === 'CONNECTED';
+  const isConnected = health.status === 'READY';
 
   return (
     <div className="sidebar-workspace-card" ref={menuRef}>
