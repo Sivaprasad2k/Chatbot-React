@@ -223,7 +223,8 @@ export function App() {
       const responseText = await apiClient.generateAIResponse({
         userPrompt: userQuery,
         selectedModel,
-        docObject: currentDoc
+        docObject: currentDoc,
+        history: currentMessages
       });
 
       const botMessage: Message = {
@@ -240,12 +241,90 @@ export function App() {
           return { ...thread, messages: [...thread.messages, botMessage], updatedAt: Date.now() };
         })
       );
-    } catch (err) {
-      console.error('Submission Error:', err);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unable to reach Avis right now. Please try again.';
+      const errBotMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'assistant',
+        content: `Unable to reach Avis right now (${errorMessage}). Please check your network or backend API endpoint and try again.`,
+        timestamp: Date.now(),
+        modelId: selectedModel.id,
+        error: true
+      };
+
+      setThreads((prev) =>
+        prev.map((thread) => {
+          if (thread.id !== activeThreadId) return thread;
+          return { ...thread, messages: [...thread.messages, errBotMsg], updatedAt: Date.now() };
+        })
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleRetry = useCallback(async (msgId: string) => {
+    if (isLoading) return;
+    const thread = threads.find((t) => t.id === activeThreadId);
+    if (!thread) return;
+
+    const msgIndex = thread.messages.findIndex((m) => m.id === msgId);
+    if (msgIndex === -1) return;
+
+    let lastUserMsg: Message | null = null;
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (thread.messages[i].sender === 'user') {
+        lastUserMsg = thread.messages[i];
+        break;
+      }
+    }
+
+    if (!lastUserMsg) return;
+
+    const updatedMessages = thread.messages.filter((m) => m.id !== msgId);
+    setThreads((prev) =>
+      prev.map((t) => (t.id === activeThreadId ? { ...t, messages: updatedMessages, updatedAt: Date.now() } : t))
+    );
+
+    setIsLoading(true);
+
+    try {
+      const responseText = await apiClient.generateAIResponse({
+        userPrompt: lastUserMsg.content,
+        selectedModel,
+        docObject: lastUserMsg.docMeta,
+        history: updatedMessages.filter((m) => m.id !== lastUserMsg!.id)
+      });
+
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'assistant',
+        content: responseText,
+        timestamp: Date.now(),
+        modelId: selectedModel.id
+      };
+
+      setThreads((prev) =>
+        prev.map((t) => (t.id === activeThreadId ? { ...t, messages: [...t.messages, botMessage], updatedAt: Date.now() } : t))
+      );
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unable to reach Avis right now.';
+      const errBotMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'assistant',
+        content: `Unable to reach Avis right now (${errorMessage}). Please check your network or backend API endpoint and try again.`,
+        timestamp: Date.now(),
+        modelId: selectedModel.id,
+        error: true
+      };
+
+      setThreads((prev) =>
+        prev.map((t) => (t.id === activeThreadId ? { ...t, messages: [...t.messages, errBotMsg], updatedAt: Date.now() } : t))
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeThreadId, isLoading, selectedModel, threads]);
 
   return (
     <div className="app-container">
@@ -290,6 +369,7 @@ export function App() {
                 message={msg}
                 speakingMsgId={speakingMsgId}
                 onSpeak={speak}
+                onRetry={handleRetry}
               />
             ))}
             {isLoading && (
@@ -300,7 +380,7 @@ export function App() {
                 <div className="loading-indicator-text">
                   {selectedModel.name} is reasoning...
                 </div>
-              </div>
+                </div>
             )}
             <div ref={chatEndRef} />
           </div>

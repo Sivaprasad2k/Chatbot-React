@@ -1,11 +1,12 @@
 import { AIModel } from '@/types/model';
-import { DocMeta } from '@/types/chat';
+import { DocMeta, Message } from '@/types/chat';
 
 export interface GenerateResponseParams {
   userPrompt: string;
   selectedModel: AIModel;
   docObject?: DocMeta | null;
   imagePreviews?: string[];
+  history?: Message[];
 }
 
 function evaluateMathExpression(expr: string): number | null {
@@ -14,7 +15,7 @@ function evaluateMathExpression(expr: string): number | null {
     if (!sanitized.trim()) return null;
     const val = Function(`'use strict'; return (${sanitized})`)();
     return typeof val === 'number' && !isNaN(val) ? val : null;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -23,47 +24,140 @@ export const apiClient = {
   async generateAIResponse({
     userPrompt,
     selectedModel,
-    docObject
+    docObject,
+    history = []
   }: GenerateResponseParams): Promise<string> {
-    const lower = (userPrompt || '').toLowerCase().trim();
+    const customEndpoint = import.meta.env.VITE_AVIS_API_ENDPOINT;
+    const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-    // 1. Math Evaluator Fast Router
+    // Fast Math Evaluation Utility
     const mathResult = evaluateMathExpression(userPrompt);
-    if (mathResult !== null && /[\d+\-*/^]/.test(userPrompt)) {
-      return `### 🧮 Avis Mathematical Evaluation (${selectedModel.name})\n\n**Expression:** \`${userPrompt}\`\n**Result:** **\`${mathResult}\`**\n\n\`\`\`javascript\n// Evaluated Expression\nconst result = ${mathResult};\nconsole.log("Result:", result);\n\`\`\``;
+    if (mathResult !== null && /^[\d\s+\-*/()^.]+$/.test(userPrompt.trim())) {
+      return `### 🧮 Avis Mathematical Evaluation (${selectedModel.name})\n\n**Expression:** \`${userPrompt.trim()}\`\n**Result:** **\`${mathResult}\`**\n\n\`\`\`javascript\nconst expression = "${userPrompt.trim()}";\nconst result = ${mathResult};\nconsole.log(result);\n\`\`\``;
     }
 
-    // 2. Client Document QA Context Synthesizer
-    if (docObject) {
-      const previewSnippet = docObject.text ? docObject.text.slice(0, 400) : '';
-      return `### 📄 Document Analysis (${selectedModel.name}): "${docObject.name}"\n\n**Extracted Document Context:**\n> ${previewSnippet}...\n\n**Analysis Synthesis:**\n- Document File Size: **${docObject.size}**\n- Extracted text structured into prompt context successfully.\n- What specific sections would you like summarized?`;
+    // Prepare full conversation messages payload
+    const formattedHistory = history
+      .filter((m) => m.content && !m.error)
+      .map((m) => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.content
+      }));
+
+    let fullPrompt = userPrompt;
+    if (docObject && docObject.text) {
+      fullPrompt = `[Attached Document: "${docObject.name}" (${docObject.size})]\nContext:\n${docObject.text.slice(0, 4000)}\n\nUser Question:\n${userPrompt}`;
     }
 
-    // 3. Model Persona Routers
-    if (selectedModel.id === 'avis-core') {
-      if (['hi', 'hello', 'hey', 'greetings', 'help'].some(term => lower.includes(term))) {
-        return `Hello! 👋 I am **Avis Core** (Adaptive Virtual Intelligence System).\n\nI offer multimodal reasoning, vision processing, full-stack architectural synthesis, and code generation across your workspace.\n\nHow can I assist you today?`;
+    const messages = [
+      ...formattedHistory,
+      { role: 'user', content: fullPrompt }
+    ];
+
+    // Case 1: Custom Avis Serverless API Endpoint configured
+    if (customEndpoint && customEndpoint !== 'https://api.open-meteo.com') {
+      try {
+        const response = await fetch(`${customEndpoint}/api/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: selectedModel.id,
+            messages,
+            docMeta: docObject
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`API endpoint returned status ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (data.reply) return data.reply;
+        if (data.choices?.[0]?.message?.content) return data.choices[0].message.content;
+        throw new Error('Invalid response structure from backend endpoint.');
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Network error';
+        throw new Error(`Unable to connect to Avis backend endpoint: ${errorMessage}`);
       }
-      if (lower.includes('weather')) {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=9.98&longitude=76.28&current_weather=true');
-        const data = await res.json();
-        const temp = data.current_weather?.temperature;
-        return `### 🌤️ Weather Forecast (Avis Core)\nCurrently recording **${temp}°C**.\n\n\`\`\`python\nimport requests\nres = requests.get('https://api.open-meteo.com/v1/forecast?latitude=9.98&longitude=76.28&current_weather=true')\nprint(res.json()['current_weather'])\n\`\`\``;
+    }
+
+    // Case 2: Direct OpenAI API Key configured in client environment
+    if (openaiApiKey) {
+      try {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${openaiApiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: `You are Avis (${selectedModel.name}), an advanced AI assistant built for technical reasoning, full-stack software architecture, and document analysis.`
+              },
+              ...messages
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `OpenAI API returned status ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || 'No response returned from model.';
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Network error';
+        throw new Error(`OpenAI inference failed: ${errorMessage}`);
       }
-      if (lower.includes('html') || lower.includes('ui card') || lower.includes('code')) {
-        return `Here is a production UI Card artifact:\n\n\`\`\`html\n<div style="padding:24px; background:#18181b; color:#f4f4f5; border:1px solid #3f3f46; border-radius:12px; font-family:sans-serif; text-align:center;">\n  <h2 style="margin:0 0 8px 0; font-size:18px;">🤖 Avis Production Component</h2>\n  <p style="margin:0; color:#a1a1aa; font-size:14px;">Clean, accessible artifact rendered live in sandbox.</p>\n</div>\n\`\`\``;
+    }
+
+    // Case 3: Direct Gemini API Key configured in client environment
+    if (geminiApiKey) {
+      try {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: messages.map((m) => ({
+                role: m.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: m.content }]
+              }))
+            })
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Gemini API returned status ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || 'No content returned.';
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Network error';
+        throw new Error(`Gemini inference failed: ${errorMessage}`);
       }
-      return `### 🤖 Avis Core Response\n\nProcessed query: **"${userPrompt}"**.\n\nAvis Core is ready to analyze document uploads, architectural queries, or code synthesis requests.`;
     }
 
-    if (selectedModel.id === 'avis-analytical') {
-      return `### 🧠 Avis Analytical Response\n\nAnalyzing **"${userPrompt}"** with engineering precision:\n\nEngineered for structural clarity, architectural decision making, and deep technical writing. Let me know if you would like a code review or breakdown.`;
-    }
+    // Case 4: No Real AI Inference Backend or API Key Configured
+    // Per specification (Part 4): Clearly state connection status without fake responses.
+    return `### ⚠️ Avis AI Inference Backend Not Connected
 
-    if (selectedModel.id === 'avis-search') {
-      return `### 🔍 Avis Search Synthesis\n\n**Search Query:** "${userPrompt}"\n\n**Factual Synthesis:**\n- Real-time search indexing executed across authoritative sources [1].\n- Structured factual synthesis generated with citations [2].\n\n**Sources:**\n1. *Global AI Benchmark Reports*\n2. *Official Documentation & Live Indexing*`;
-    }
+**Avis is operating in frontend-only mode.** No active AI backend endpoint (\`VITE_AVIS_API_ENDPOINT\`) or API key (\`VITE_OPENAI_API_KEY\` / \`VITE_GEMINI_API_KEY\`) is configured in the environment.
 
-    return `### ⚡ Avis Flash Response\n\nProcessed query: **"${userPrompt}"**.\n\nAvis Flash is optimized for high-speed document QA and rapid multimodal processing.`;
+**To connect a real AI model backend:**
+1. Configure \`VITE_AVIS_API_ENDPOINT\` in your \`.env\` or Vercel Environment Variables pointing to your secure serverless API proxy.
+2. Or set a valid provider key (\`VITE_OPENAI_API_KEY\` or \`VITE_GEMINI_API_KEY\`) for direct client API routing.
+
+*Active Selected Profile:* **${selectedModel.name}** (${selectedModel.badge})
+*Document Parser & Workspace:* Fully operational.`;
   }
 };

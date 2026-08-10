@@ -1,5 +1,5 @@
 import React from 'react';
-import { Volume2, VolumeX, FileText } from 'lucide-react';
+import { Volume2, VolumeX, FileText, RotateCcw } from 'lucide-react';
 import { Message } from '@/types/chat';
 import { CodeBlock } from './CodeBlock';
 import { AvisLogo } from '@/components/common/AvisLogo';
@@ -8,15 +8,18 @@ interface MessageRowProps {
   message: Message;
   speakingMsgId: string | null;
   onSpeak: (id: string, text: string) => void;
+  onRetry?: (id: string) => void;
 }
 
 export const MessageRow = React.memo<MessageRowProps>(({
   message,
   speakingMsgId,
-  onSpeak
+  onSpeak,
+  onRetry
 }) => {
   const isUser = message.sender === 'user';
   const isSpeaking = speakingMsgId === message.id;
+  const isError = Boolean(message.error);
 
   const renderContentWithCode = (text: string) => {
     const regex = /```(\w*)\n?([\s\S]*?)```/g;
@@ -40,9 +43,40 @@ export const MessageRow = React.memo<MessageRowProps>(({
       if (part.type === 'code') {
         return <CodeBlock key={idx} code={part.content} language={part.language} />;
       }
+
+      // Simple Markdown formatting for bold, italic, code, headings, lists
+      const lines = part.content.split('\n');
       return (
         <div key={idx} style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-          {part.content}
+          {lines.map((line, lineIdx) => {
+            if (line.startsWith('### ')) {
+              return (
+                <h3 key={lineIdx} style={{ fontSize: 16, fontWeight: 700, margin: '12px 0 6px 0', color: 'var(--text-primary)' }}>
+                  {line.replace('### ', '')}
+                </h3>
+              );
+            }
+            if (line.startsWith('## ')) {
+              return (
+                <h2 key={lineIdx} style={{ fontSize: 18, fontWeight: 700, margin: '14px 0 8px 0', color: 'var(--text-primary)' }}>
+                  {line.replace('## ', '')}
+                </h2>
+              );
+            }
+            if (line.startsWith('# ')) {
+              return (
+                <h1 key={lineIdx} style={{ fontSize: 20, fontWeight: 700, margin: '16px 0 10px 0', color: 'var(--text-primary)' }}>
+                  {line.replace('# ', '')}
+                </h1>
+              );
+            }
+            return (
+              <React.Fragment key={lineIdx}>
+                {line}
+                {lineIdx < lines.length - 1 && <br />}
+              </React.Fragment>
+            );
+          })}
         </div>
       );
     });
@@ -56,7 +90,7 @@ export const MessageRow = React.memo<MessageRowProps>(({
         </div>
       )}
 
-      <div style={{ flex: isUser ? '0 1 auto' : 1, maxWidth: isUser ? '85%' : '100%' }}>
+      <div style={{ flex: isUser ? '0 1 auto' : 1, maxWidth: isUser ? '85%' : '100%', minWidth: 0 }}>
         {message.docMeta && (
           <div
             style={{
@@ -66,7 +100,7 @@ export const MessageRow = React.memo<MessageRowProps>(({
               padding: '6px 12px',
               backgroundColor: 'var(--bg-surface-0)',
               border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-md)',
+              borderRadius: 'var(--radius-12)',
               fontSize: 12,
               marginBottom: 8
             }}
@@ -77,11 +111,22 @@ export const MessageRow = React.memo<MessageRowProps>(({
           </div>
         )}
 
-        <div className={isUser ? 'msg-bubble-user' : 'msg-bubble-bot'}>
+        <div className={isUser ? 'msg-bubble-user' : `msg-bubble-bot ${isError ? 'error' : ''}`}>
           {renderContentWithCode(message.content)}
+
+          {isError && onRetry && (
+            <button
+              onClick={() => onRetry(message.id)}
+              className="retry-action-btn"
+              title="Retry sending prompt"
+            >
+              <RotateCcw size={13} />
+              <span>Retry Prompt</span>
+            </button>
+          )}
         </div>
 
-        {!isUser && (
+        {!isUser && !isError && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
             <button
               onClick={() => onSpeak(message.id, message.content)}
