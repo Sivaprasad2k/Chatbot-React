@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Settings, Info, Trash2, HardDrive, ChevronUp } from 'lucide-react';
+import { Settings, Info, Trash2, HardDrive, ChevronUp, Cpu } from 'lucide-react';
+import { apiClient, BackendHealth } from '@/services/api/client';
 
 interface SidebarWorkspacePanelProps {
   threadsCount: number;
@@ -15,7 +16,16 @@ export const SidebarWorkspacePanel: React.FC<SidebarWorkspacePanelProps> = ({
   onClearThreads
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [health, setHealth] = useState<BackendHealth>({ status: 'CONFIGURATION_MISSING' });
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      const res = await apiClient.checkHealth();
+      setHealth(res);
+    };
+    fetchHealth();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -34,6 +44,8 @@ export const SidebarWorkspacePanel: React.FC<SidebarWorkspacePanelProps> = ({
     }
   };
 
+  const isConnected = health.status === 'CONNECTED';
+
   return (
     <div className="sidebar-workspace-card" ref={menuRef}>
       {/* Popover Liquid Glass Menu */}
@@ -41,10 +53,16 @@ export const SidebarWorkspacePanel: React.FC<SidebarWorkspacePanelProps> = ({
         <div className="workspace-dropdown-menu">
           <div className="workspace-menu-header">
             <div className="storage-status-badge">
-              <span className="storage-pulse-dot" />
-              <span>Chats stored locally</span>
+              <span
+                className="storage-pulse-dot"
+                style={{
+                  backgroundColor: isConnected ? 'var(--accent-emerald)' : '#f59e0b',
+                  boxShadow: isConnected ? '0 0 8px var(--accent-emerald)' : '0 0 8px #f59e0b'
+                }}
+              />
+              <span>{isConnected ? 'AI Inference Connected' : 'Frontend Only'}</span>
             </div>
-            <span className="version-tag">v0.1.0</span>
+            <span className="version-tag">v1.0.0</span>
           </div>
 
           <div className="workspace-menu-divider" />
@@ -84,13 +102,19 @@ export const SidebarWorkspacePanel: React.FC<SidebarWorkspacePanelProps> = ({
       <div className="workspace-panel-trigger" onClick={() => setIsOpen(!isOpen)}>
         <div className="workspace-panel-info">
           <div className="workspace-title-row">
-            <span className="storage-pulse-dot" />
+            <span
+              className="storage-pulse-dot"
+              style={{
+                backgroundColor: isConnected ? 'var(--accent-emerald)' : '#f59e0b',
+                boxShadow: isConnected ? '0 0 8px var(--accent-emerald)' : '0 0 8px #f59e0b'
+              }}
+            />
             <span className="workspace-name">Local Workspace</span>
           </div>
           <div className="workspace-status-text">
-            <span>Chats stored locally</span>
+            <span>{isConnected ? 'AI Active' : 'Frontend Only'}</span>
             <span className="dot-sep">•</span>
-            <span className="version-text">v0.1.0</span>
+            <span className="version-text"><Cpu size={10} style={{ display: 'inline', verticalAlign: 'middle' }} /> Vercel Serverless</span>
           </div>
         </div>
 
